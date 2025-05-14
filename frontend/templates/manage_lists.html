@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Gerenciar Listas de Contatos (CSV)</h2>
+</div>
+<p class="text-muted">Carregue seus arquivos CSV contendo as colunas `telefone` e `nome` para serem usados nas campanhas de disparo.</p>
+<hr>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h4><i class="fas fa-upload"></i> Carregar Nova Lista de Contatos</h4>
+    </div>
+    <div class="card-body">
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('manage_lists') }}">
+            <div class="form-group">
+                <label for="csv_file">Selecione o arquivo CSV:</label>
+                <div class="custom-file">
+                    <input type="file" class="custom-file-input" id="csv_file" name="csv_file" accept=".csv" required>
+                    <label class="custom-file-label" for="csv_file">Escolher arquivo...</label>
+                </div>
+                <small class="form-text text-muted">O arquivo deve ser no formato CSV, com as colunas "telefone" e "nome".</small>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-cloud-upload-alt"></i> Carregar Lista</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h4><i class="fas fa-list-ul"></i> Listas Carregadas</h4>
+    </div>
+    <div class="card-body">
+        {% if uploaded_files %}
+            <ul class="list-group">
+                {% for filename in uploaded_files %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-file-csv mr-2"></i>{{ filename }}</span>
+                        </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="alert alert-info" role="alert">
+                Nenhuma lista CSV carregada ainda na pasta <code>{{ csv_upload_folder }}</code>. Use o formulário acima para carregar sua primeira lista.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }} <script>
+// Script para mostrar o nome do arquivo no input de upload do Bootstrap
+document.addEventListener('DOMContentLoaded', function () {
+    var fileInput = document.getElementById('csv_file');
+    if (fileInput) {
+        fileInput.addEventListener('change', function(event) {
+            var fileName = event.target.files[0] ? event.target.files[0].name : 'Escolher arquivo...';
+            var nextSibling = event.target.nextElementSibling;
+            if (nextSibling && nextSibling.classList.contains('custom-file-label')) {
+                nextSibling.innerText = fileName;
+            }
+        });
+    }
+});
+</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+{% endblock %}

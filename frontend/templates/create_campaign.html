@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Criar Nova Campanha de Disparo</h2>
+<p class="text-muted">Defina os detalhes da sua campanha. Após a criação, a campanha ficará com status "PENDING" e você poderá iniciá-la na tela "Ver Campanhas".</p>
+<hr>
+<form method="POST" enctype="multipart/form-data" action="{{ url_for('create_campaign') }}">
+    <div class="form-group">
+        <label for="campaign_name">Nome da Campanha:</label>
+        <input type="text" class="form-control" id="campaign_name" name="campaign_name" placeholder="Ex: Promoção Dia das Mães" required>
+    </div>
+
+    <div class="form-group">
+        <label for="csv_file">Selecione a Lista de Contatos (CSV):</label>
+        <select class="form-control" id="csv_file" name="csv_file" required>
+            <option value="" disabled selected>-- Escolha uma lista CSV carregada --</option>
+            {% for csv in available_csv_files %}
+                <option value="{{ csv }}">{{ csv }}</option>
+            {% endfor %}
+        </select>
+        {% if not available_csv_files %}
+            <small class="form-text text-danger">Nenhuma lista CSV encontrada na pasta de uploads (`{{ csv_upload_folder }}`). 
+            <a href="{{ url_for('manage_lists') }}">Carregue uma lista primeiro</a>.</small>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        <label for="message_template">Template da Mensagem:</label>
+        <textarea class="form-control" id="message_template" name="message_template" rows="5" placeholder="Ex: Olá {{nome}}, aproveite nossa oferta especial! Válida até DD/MM." required></textarea>
+        <small class="form-text text-muted">Use <code>{{nome}}</code> para personalizar a mensagem com o nome do contato do CSV.</small>
+    </div>
+
+    <div class="form-group">
+        <label for="campaign_image">Imagem da Campanha (opcional):</label>
+        <input type="file" class="form-control-file" id="campaign_image" name="campaign_image" accept="image/png, image/jpeg, image/gif, image/webp">
+        <small class="form-text text-muted">Se selecionada, esta imagem será enviada junto com a mensagem de texto.</small>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg"> <i class="fas fa-rocket"></i> Criar e Preparar Campanha</button>
+    <a href="{{ url_for('list_campaigns') }}" class="btn btn-secondary btn-lg">Cancelar</a>
+</form>
+{% endblock %}
+
+{% block scripts %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+{% endblock %}

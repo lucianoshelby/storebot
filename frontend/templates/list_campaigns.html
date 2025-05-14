@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Lista de Campanhas</h2>
+    <a href="{{ url_for('create_campaign') }}" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Criar Nova Campanha</a>
+</div>
+
+{% if campaigns %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="thead-light">
+                <tr>
+                    <th>ID</th>
+                    <th>Nome (CSV)</th>
+                    <th style="min-width: 200px;">Mensagem (Início)</th>
+                    <th>Imagem</th>
+                    <th>Status</th>
+                    <th>Criada em</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for campaign in campaigns %}
+                <tr>
+                    <td><small>{{ campaign.campaign_id }}</small></td>
+                    <td>{{ campaign.csv_filename }}</td>
+                    <td><small>{{ campaign.message_template[:60] }}{% if campaign.message_template|length > 60 %}...{% endif %}</small></td>
+                    <td>{{ campaign.image_filename if campaign.image_filename else 'Nenhuma' }}</td>
+                    <td>
+                        <span class="badge badge-pill
+                            {% if campaign.status == 'COMPLETED' %}badge-success
+                            {% elif campaign.status == 'IN_PROGRESS' %}badge-info
+                            {% elif campaign.status == 'PENDING' %}badge-secondary
+                            {% elif campaign.status in ['FAILED', 'FAILED_NO_CONTACTS'] %}badge-danger
+                            {% elif campaign.status == 'COMPLETED_WITH_ERRORS' %}badge-warning
+                            {% else %}badge-light
+                            {% endif %}">
+                            {{ campaign.status.replace('_', ' ')|title }}
+                        </span>
+                    </td>
+                    <td><small>{{ campaign.created_at.split('.')[0] if campaign.created_at else 'N/A' }}</small></td>
+                    <td>
+                        {% if campaign.status == 'PENDING' or campaign.status == 'PAUSED' %}
+                            <form action="{{ url_for('start_campaign_processing', campaign_id=campaign.campaign_id) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-success" title="Iniciar Disparos">
+                                    <i class="fas fa-play"></i> Iniciar
+                                </button>
+                            </form>
+                        {% elif campaign.status == 'IN_PROGRESS' %}
+                             <button class="btn btn-sm btn-warning" disabled title="Pausar Disparos (Em breve)">
+                                <i class="fas fa-pause"></i> Pausar
+                             </button>
+                        {% endif %}
+                        <a href="{{ url_for('campaign_details_page', campaign_id=campaign.campaign_id) }}" class="btn btn-sm btn-info" title="Ver Detalhes e Logs">
+                            <i class="fas fa-eye"></i> Detalhes
+                        </a>
+                         </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="alert alert-info">
+        Nenhuma campanha criada ainda. <a href="{{ url_for('create_campaign') }}" class="alert-link">Clique aqui para criar sua primeira campanha!</a>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+{% endblock %}

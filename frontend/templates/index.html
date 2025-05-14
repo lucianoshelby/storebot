@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="jumbotron">
+  <h1 class="display-4">Bem-vindo ao StoreBot Samsung!</h1>
+  <p class="lead">Sua ferramenta para disparos de mensagens personalizadas no WhatsApp.</p>
+  <hr class="my-4">
+  <p>Use a navegação acima para gerenciar suas listas de contatos, criar novas campanhas de disparo e acompanhar o status dos envios.</p>
+  <a class="btn btn-primary btn-lg" href="{{ url_for('create_campaign') }}" role="button">Criar Nova Campanha</a>
+  <a class="btn btn-secondary btn-lg" href="{{ url_for('manage_lists') }}" role="button">Gerenciar Listas</a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <h4>Próximos Passos:</h4>
+        <ul>
+            <li>Carregar suas listas de contatos.</li>
+            <li>Definir sua primeira campanha de disparo.</li>
+            <li>Acompanhar os envios.</li>
+        </ul>
+    </div>
+    <div class="col-md-6">
+        <h4>Status do Sistema (Exemplo)</h4>
+        <p>WPPConnect Server: <span class="text-success">Online</span> (Conectado)</p>
+        </div>
+</div>
+{% endblock %}

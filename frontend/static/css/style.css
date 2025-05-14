@@ -1,0 +1,39 @@
+/* frontend/static/css/style.css */
+body {
+    font-family: 'Roboto', sans-serif; /* Exemplo de fonte - verifique as preferidas da Samsung */
+    background-color: #f4f6f8; /* Um cinza claro, comum em dashboards */
+    color: #333;
+}
+
+.navbar-dark.bg-dark {
+    /* Cor principal da Samsung (exemplo: um azul escuro) - substitua pela cor correta */
+    background-color: #003366 !important; 
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.btn-primary {
+    /* Cor de destaque da Samsung (exemplo: um azul mais vibrante) - substitua */
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.container {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: #1d3c59; /* Um tom de azul escuro para títulos */
+}
+
+/* Adicione mais estilos baseados nas diretrizes da Samsung aqui */
