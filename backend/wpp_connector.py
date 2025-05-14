@@ -4,13 +4,17 @@ import json
 import base64
 import os
 import mimetypes # ### NOVA LINHA ### Importar mimetypes
+import sys
+sys.path.insert(0, 'C:\\Users\\Gestão MX\\Documents\\StoreBot') # Ajuste o caminho conforme necessário
 
-from config import (
+from backend.config import (
     WPPCONNECT_SERVER_URL,
     WPPCONNECT_API_ENDPOINT_SEND_IMAGE,
     # WPPCONNECT_SESSION_NAME # Removido se não usado diretamente aqui, já está em config
 )
-import auth_manager # auth_manager em vez de from auth_manager import ... para clareza
+
+from backend.auth_manager import generate_jwt_token, get_current_jwt_token # Ajuste conforme necessário
+#import backend.auth_manager # auth_manager em vez de from auth_manager import ... para clareza
 
 # ... (função send_whatsapp_message permanece a mesma) ...
 
@@ -26,12 +30,12 @@ def send_whatsapp_image_message(phone_number, image_path, caption=""):
         print(f"Debug (Imagem): ERRO - Arquivo de imagem está VAZIO: {os.path.abspath(image_path)}")
         return False, {"error": f"Arquivo de imagem está vazio: {image_path}"}
 
-    jwt_token = auth_manager.get_current_jwt_token()
+    jwt_token = get_current_jwt_token()
     if not jwt_token:
         print("Debug (Imagem): Falha ao obter token JWT. Tentando gerar um novo...")
-        if not auth_manager.generate_jwt_token():
+        if not generate_jwt_token():
              return False, {"error": "Falha ao obter/gerar token JWT para autenticação."}
-        jwt_token = auth_manager.get_current_jwt_token()
+        jwt_token = get_current_jwt_token()
         if not jwt_token:
             return False, {"error": "Token JWT ainda indisponível após tentativa de geração."}
 

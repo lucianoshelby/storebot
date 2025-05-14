@@ -1,6 +1,6 @@
 # Exemplo em um auth_manager.py ou wpp_connector.py
 import requests
-from config import WPPCONNECT_SERVER_URL, WPPCONNECT_SESSION_NAME, WPPCONNECT_SECRET_KEY
+from backend.config import WPPCONNECT_SERVER_URL, WPPCONNECT_SESSION_NAME, WPPCONNECT_SECRET_KEY
 
 current_jwt_token = None
 
