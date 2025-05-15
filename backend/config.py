@@ -7,7 +7,7 @@ WPPCONNECT_API_ENDPOINT_SEND_TEXT = f"/api/{WPPCONNECT_SESSION_NAME}/send-messag
 WPPCONNECT_API_ENDPOINT_SEND_IMAGE = f"/api/{WPPCONNECT_SESSION_NAME}/send-image" # Para enviar imagens
 # Adicionaremos o endpoint para enviar arquivos/imagens depois
 # WPPCONNECT_API_ENDPOINT_SEND_FILE = f"/api/{WPPCONNECT_SESSION_NAME}/send-file"
-
+WPPCONNECT_API_ENDPOINT_SEND_TEXT = f"/api/{WPPCONNECT_SESSION_NAME}/send-message"
 # Configurações do Banco de Dados
 DATABASE_NAME = "storebot.db"
 

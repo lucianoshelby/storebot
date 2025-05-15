@@ -25,13 +25,20 @@ body {
     border-color: #0056b3;
 }
 
-.container {
+body > main.container, /* Se o container principal for filho direto do body e tiver a tag main */
+.content-container { /* Ou adicione esta classe ao seu container principal no base.html */
     background-color: #ffffff;
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 0 15px rgba(0,0,0,0.1);
 }
 
+.navbar .container {
+    background-color: transparent !important; /* Remove o fundo branco */
+    padding: 0 !important; /* Remove o padding extra se não for desejado para o container da navbar */
+    box-shadow: none !important; /* Remove a sombra */
+    border-radius: 0 !important; /* Remove o border-radius */
+}
 h1, h2, h3, h4, h5, h6 {
     color: #1d3c59; /* Um tom de azul escuro para títulos */
 }

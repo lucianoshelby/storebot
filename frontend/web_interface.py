@@ -400,6 +400,36 @@ def handle_my_custom_event(json_data):
     current_app.logger.info(f'Recebido my_event de {request.sid}: {str(json_data)}')
     emit('my_response', json_data, broadcast=False, to=request.sid) # Envia de volta para o emissor
 
+@app.route('/lists/delete/<path:filename>', methods=['POST'])
+def delete_list_file(filename):
+    # Caminho absoluto para a pasta de upload de CSVs
+    csv_upload_folder_abs = os.path.join(app.root_path, app.config['UPLOAD_FOLDER_CSV'])
+    filepath_to_delete = os.path.join(csv_upload_folder_abs, filename)
+
+    # Validação de segurança básica para evitar traversal (embora <path:filename> ajude)
+    # Garante que o arquivo a ser deletado está de fato dentro da pasta de uploads designada.
+    if not os.path.normpath(filepath_to_delete).startswith(os.path.normpath(csv_upload_folder_abs)):
+        flash('Tentativa de exclusão de arquivo inválida.', 'danger')
+        return redirect(url_for('manage_lists'))
+
+    if os.path.exists(filepath_to_delete):
+        try:
+            # Antes de excluir, verifique se o CSV não está sendo usado por alguma campanha PENDING ou IN_PROGRESS
+            # Esta é uma verificação opcional, mas recomendada.
+            # Para simplificar agora, vamos pular essa verificação, mas considere adicioná-la.
+            # Ex: campaigns_using_list = database_manager.get_campaigns_by_csv(filename, statuses=['PENDING', 'IN_PROGRESS'])
+            # if campaigns_using_list:
+            #     flash(f"A lista '{filename}' está em uso por campanhas ativas e não pode ser excluída.", 'warning')
+            #     return redirect(url_for('manage_lists'))
+
+            os.remove(filepath_to_delete)
+            flash(f"Lista '{filename}' excluída com sucesso.", 'success')
+        except Exception as e:
+            flash(f"Erro ao excluir a lista '{filename}': {str(e)}", 'danger')
+    else:
+        flash(f"Lista '{filename}' não encontrada para exclusão.", 'warning')
+    
+    return redirect(url_for('manage_lists'))
 
 if __name__ == '__main__':
     database_manager.create_tables()

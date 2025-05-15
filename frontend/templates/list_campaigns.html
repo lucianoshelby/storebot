@@ -41,36 +41,49 @@
                             {{ campaign.status.replace('_', ' ')|title }}
                         </span>
                     </td>
-                    <td class="campaign-progress-cell" style="min-width: 180px;"> {# Nova célula para progresso #}
+                    <td class="campaign-progress-cell" style="min-width: 200px;"> {# Nova célula para progresso #}
                         <div id="progress-text-{{ campaign.campaign_id }}">
                             {% if campaign.status == 'IN_PROGRESS' %}
-                                Carregando...
-                            {% elif campaign.status not in ['PENDING', 'PAUSED'] %}
-                                N/A
-                            {% else %}
-                                Aguardando início
+                                Iniciando...
+                            {% elif campaign.status == 'COMPLETED' or campaign.status == 'COMPLETED_WITH_ERRORS' or campaign.status == 'FAILED' %}
+                                Finalizada
+                            {% elif campaign.status == 'FAILED_NO_CONTACTS' %}
+                                Sem Contatos
+                            {% else %} {# PENDING, PAUSED #}
+                                Aguardando
                             {% endif %}
                         </div>
-                        <div class="progress" id="progress-bar-container-{{ campaign.campaign_id }}" style="height: 10px; margin-top: 5px; display: none;">
-                            <div id="progress-bar-{{ campaign.campaign_id }}" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="progress" id="progress-bar-container-{{ campaign.campaign_id }}" style="height: 10px; margin-top: 5px; {% if campaign.status != 'IN_PROGRESS' %}display: none;{% endif %}">
+                            <div id="progress-bar-{{ campaign.campaign_id }}" class="progress-bar" role="progressbar"
+                                 style="width: {% if campaign.status == 'IN_PROGRESS' %}0%{% else %}100%{% endif %};"
+                                 aria-valuenow="{% if campaign.status == 'IN_PROGRESS' %}0{% else %}100{% endif %}"
+                                 aria-valuemin="0" aria-valuemax="100"
+                                 title="Progresso da campanha {{ campaign.campaign_id }}"
+                                 aria-label="Progresso da campanha {{ campaign.campaign_id }}"></div>
                         </div>
                     </td>
                     <td><small>{{ campaign.created_at.split('.')[0] if campaign.created_at else 'N/A' }}</small></td>
-                    <td class="campaign-action-cell"> {# Classe para fácil acesso via JS #}
-                        {% if campaign.status in ['PENDING', 'PAUSED', 'FAILED', 'COMPLETED_WITH_ERRORS'] %}
-                            <form action="{{ url_for('start_campaign_processing_route', campaign_id=campaign.campaign_id) }}" method="POST" style="display: inline;">
+                    <td class="campaign-action-cell" style="min-width: 180px;"> {# Classe para fácil acesso via JS #}
+                        {% if campaign.status in ['PENDING', 'PAUSED', 'FAILED', 'FAILED_NO_CONTACTS', 'COMPLETED_WITH_ERRORS'] %}
+                            <form action="{{ url_for('start_campaign_processing_route', campaign_id=campaign.campaign_id) }}" method="POST" style="display: inline;" class="start-campaign-form">
                                 <button type="submit" class="btn btn-sm btn-success btn-start-campaign" title="Iniciar/Retomar Disparos">
-                                    <i class="fas fa-play"></i> {{ 'Retomar' if campaign.status != 'PENDING' else 'Iniciar' }}
+                                    <i class="fas fa-play"></i>
+                                    {% if campaign.status == 'PENDING' %}Iniciar
+                                    {% elif campaign.status == 'FAILED_NO_CONTACTS' and not campaign.dispatch_log_exists %} {# Assumindo que você pode passar essa info do backend #}
+                                        Iniciar
+                                    {% else %}Retomar
+                                    {% endif %}
                                 </button>
                             </form>
                         {% elif campaign.status == 'IN_PROGRESS' %}
-                             <button class="btn btn-sm btn-warning" disabled title="Pausar Disparos (Em breve)">
+                             <button class="btn btn-sm btn-warning btn-pause-campaign" disabled title="Pausar Disparos (Em desenvolvimento)">
                                 <i class="fas fa-pause"></i> Pausar
                              </button>
                         {% endif %}
                         <a href="{{ url_for('campaign_details_page', campaign_id=campaign.campaign_id) }}" class="btn btn-sm btn-info" title="Ver Detalhes e Logs">
                             <i class="fas fa-eye"></i> Detalhes
                         </a>
+
                     </td>
                 </tr>
                 {# Linha para logs, inicialmente oculta #}
@@ -95,25 +108,34 @@
 
 {% block styles %}
 {{ super() }}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+{# Font Awesome já deve estar no base.html, se não, descomente ou adicione no base.html #}
+{# <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"> #}
 <style>
     .campaign-log-area {
-        max-height: 150px;
+        max-height: 200px; /* Aumentado um pouco */
         overflow-y: auto;
         border: 1px solid #ddd;
         padding: 8px;
         margin-top: 5px;
         font-size: 0.85em;
-        background-color: #f9f9f9;
+        background-color: #f8f9fa; /* Um pouco mais suave */
+        border-radius: 4px;
     }
     .campaign-log-area p {
         margin-bottom: 0.3rem;
-        border-bottom: 1px dashed #eee;
         padding-bottom: 0.3rem;
+        line-height: 1.4;
     }
-    .campaign-log-area p:last-child {
-        border-bottom: none;
+    .campaign-log-area p:not(:last-child) {
+      border-bottom: 1px dashed #eee;
     }
+    .campaign-log-area .log-time { color: #6c757d; margin-right: 5px;}
+    .campaign-log-area .log-contact { font-weight: bold; }
+    .campaign-log-area .log-status-PROCESSING { color: #007bff; }
+    .campaign-log-area .log-status-SENT_SUCCESS { color: #28a745; }
+    .campaign-log-area .log-status-SENT_FAILED { color: #dc3545; }
+    .campaign-log-area .log-status-INFO, .campaign-log-area .log-status-ERRO { font-style: italic; }
+
 </style>
 {% endblock %}
 
@@ -123,136 +145,224 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
 <script type="text/javascript" charset="utf-8">
     document.addEventListener('DOMContentLoaded', function() {
-        const socket = io();
+        const socket = io(); // Conecta ao servidor Socket.IO
 
         socket.on('connect', function() {
-            console.log('Frontend: Conectado ao servidor Socket.IO!');
+            console.log('Frontend: Conectado ao servidor Socket.IO! SID:', socket.id);
         });
 
-        socket.on('response', function(msg) {
-            console.log('Frontend: Resposta do servidor:', msg);
+        socket.on('disconnect', function(reason) {
+            console.log('Frontend: Desconectado do servidor Socket.IO. Razão:', reason);
         });
 
-        function updateCampaignStatus(campaignId, statusText, badgeClass) {
+        socket.on('connect_error', (err) => {
+            console.error('Frontend: Erro de conexão com Socket.IO:', err.message, err.data || '');
+        });
+
+
+        // Função para atualizar o BADGE de status da campanha
+        function updateCampaignStatusBadge(campaignId, statusText, statusMessage) {
             const campaignRow = document.querySelector(`tr[data-campaign-id="${campaignId}"]`);
-            if (campaignRow) {
-                const statusCell = campaignRow.querySelector('.campaign-status-cell');
-                if (statusCell) {
-                    statusCell.innerHTML = `<span class="badge badge-pill ${badgeClass}">${statusText.replace('_', ' ')}</span>`;
-                }
-                // Habilitar/desabilitar botão de iniciar
-                const startButton = campaignRow.querySelector('.btn-start-campaign');
-                if (startButton) {
-                    if (statusText === 'IN_PROGRESS' || statusText === 'COMPLETED') {
-                        startButton.style.display = 'none'; // Esconde o botão de iniciar
-                    } else {
-                         startButton.style.display = 'inline-block'; // Mostra
-                         startButton.innerHTML = '<i class="fas fa-play"></i> Retomar';
-                    }
-                }
+            if (!campaignRow) return;
+
+            const statusCell = campaignRow.querySelector('.campaign-status-cell');
+            let badgeClass = 'badge-light'; // Default
+            let displayStatusText = statusText.replace(/_/g, ' ');
+
+            if (statusText === 'COMPLETED') badgeClass = 'badge-success';
+            else if (statusText === 'IN_PROGRESS') badgeClass = 'badge-info';
+            else if (statusText === 'PENDING') badgeClass = 'badge-secondary';
+            else if (statusText === 'FAILED' || statusText === 'FAILED_NO_CONTACTS' || statusText === 'ERRO') badgeClass = 'badge-danger';
+            else if (statusText === 'COMPLETED_WITH_ERRORS' || statusText === 'PAUSED') badgeClass = 'badge-warning';
+
+            if (statusCell) {
+                statusCell.innerHTML = `<span class="badge badge-pill ${badgeClass}">${displayStatusText}</span>`;
             }
         }
 
-        function updateCampaignProgress(campaignId, processed, total, success, failed, status_message) {
+        // Função para atualizar a área de PROGRESSO da campanha
+        function updateCampaignProgressDisplay(campaignId, processed, total, success, failed, currentStatusText) {
             const progressTextDiv = document.getElementById(`progress-text-${campaignId}`);
             const progressBarContainer = document.getElementById(`progress-bar-container-${campaignId}`);
             const progressBar = document.getElementById(`progress-bar-${campaignId}`);
 
-            if (progressTextDiv && progressBar && progressBarContainer) {
+            if (!progressTextDiv || !progressBar || !progressBarContainer) return;
+
+            let displayText = 'Aguardando...';
+            let percentage = 0;
+
+            if (currentStatusText === "IN_PROGRESS") {
                 progressBarContainer.style.display = 'flex';
-                let percentage = total > 0 ? (processed / total) * 100 : 0;
-                progressBar.style.width = percentage + '%';
-                progressBar.setAttribute('aria-valuenow', percentage);
-                
-                let text = `Processados: ${processed}/${total}`;
-                if (status_message) {
-                    text = status_message;
-                } else if (processed === total && total > 0) {
-                    text = `Concluído: ${success} sucesso(s), ${failed} falha(s).`;
-                } else if (processed > 0) {
-                     text = `Processando: ${processed}/${total} (S:${success}, F:${failed})`;
+                if (total > 0) {
+                    percentage = (processed / total) * 100;
+                    displayText = `Processando: ${processed}/${total} (S:${success}, F:${failed})`;
+                } else {
+                    displayText = "Iniciando análise de contatos..."; // Nenhum total ainda, mas em progresso
                 }
-                 progressTextDiv.innerHTML = `<small>${text}</small>`;
+            } else if (currentStatusText === "PENDING" || currentStatusText === "PAUSED") {
+                displayText = "Aguardando início/retomada";
+                progressBarContainer.style.display = 'none';
+            } else { // COMPLETED, FAILED, etc.
+                percentage = 100; // Barra cheia para estados finais
+                progressBarContainer.style.display = 'flex'; // Manter barra visível
+                if (total > 0) {
+                     displayText = `Finalizado: ${processed}/${total} (S:${success}, F:${failed})`;
+                } else if (currentStatusText === "FAILED_NO_CONTACTS") {
+                    displayText = "Sem contatos para processar.";
+                } else {
+                    displayText = `Campanha ${currentStatusText.toLowerCase().replace('_', ' ')}.`;
+                }
             }
+            progressTextDiv.innerHTML = `<small>${displayText}</small>`;
+            progressBar.style.width = percentage + '%';
+            progressBar.setAttribute('aria-valuenow', percentage);
+            // Alterar cor da barra de progresso com base no status
+            progressBar.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info');
+            if (currentStatusText === "COMPLETED") progressBar.classList.add('bg-success');
+            else if (currentStatusText === "FAILED" || currentStatusText === "FAILED_NO_CONTACTS") progressBar.classList.add('bg-danger');
+            else if (currentStatusText === "COMPLETED_WITH_ERRORS") progressBar.classList.add('bg-warning');
+            else if (currentStatusText === "IN_PROGRESS") progressBar.classList.add('bg-info');
         }
-        
-        function addCampaignLog(campaignId, logData) {
+
+        // Função para atualizar os BOTÕES DE AÇÃO
+        function updateActionButtons(campaignId, statusText) {
+            const campaignRow = document.querySelector(`tr[data-campaign-id="${campaignId}"]`);
+            if (!campaignRow) return;
+            const actionCell = campaignRow.querySelector('.campaign-action-cell');
+            if (!actionCell) return;
+
+            let newActionsHTML = '';
+            const detailsButtonHTML = `
+                <a href="/campaigns/${campaignId}/details" class="btn btn-sm btn-info" title="Ver Detalhes e Logs">
+                    <i class="fas fa-eye"></i> Detalhes
+                </a>`;
+            const deleteButtonHTML = `
+                <form action="/campaigns/${campaignId}/delete" method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir a campanha ${campaignId} e todos os seus logs? Esta ação não pode ser desfeita.');" class="delete-campaign-form">
+                    <button type="submit" class="btn btn-sm btn-danger btn-delete-campaign" title="Excluir Campanha">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </form>`;
+
+            if (statusText === 'PENDING' || statusText === 'PAUSED' || statusText === 'FAILED' || statusText === 'FAILED_NO_CONTACTS' || statusText === 'COMPLETED_WITH_ERRORS') {
+                let buttonText = 'Iniciar';
+                if (statusText === 'PAUSED' || statusText === 'FAILED' || statusText === 'COMPLETED_WITH_ERRORS') {
+                    buttonText = 'Retomar';
+                }
+                // Não mostrar botão de iniciar para FAILED_NO_CONTACTS se a campanha já foi "tentada" e não tem contatos.
+                // A lógica de renderização inicial do botão no Jinja deve ser a fonte da verdade aqui.
+                // Esta função JS apenas REAGE a mudanças de status.
+                // Se o status permitir uma nova tentativa:
+                 if (statusText !== 'FAILED_NO_CONTACTS' || (statusText === 'FAILED_NO_CONTACTS' /*&& !campaignAlreadyAttemptedAndNoContacts*/)) {
+                    newActionsHTML += `
+                        <form action="/campaigns/${campaignId}/start" method="POST" style="display: inline;" class="start-campaign-form">
+                            <button type="submit" class="btn btn-sm btn-success btn-start-campaign" title="${buttonText} Disparos">
+                                <i class="fas fa-play"></i> ${buttonText}
+                            </button>
+                        </form>
+                    `;
+                }
+            } else if (statusText === 'IN_PROGRESS') {
+                newActionsHTML += `
+                    <button class="btn btn-sm btn-warning btn-pause-campaign" disabled title="Pausar Disparos (Em desenvolvimento)">
+                        <i class="fas fa-pause"></i> Pausar
+                    </button>
+                `;
+            }
+            
+            newActionsHTML += detailsButtonHTML;
+            if (statusText !== 'IN_PROGRESS') { // Não permitir excluir se estiver em progresso
+                newActionsHTML += deleteButtonHTML;
+            }
+            actionCell.innerHTML = newActionsHTML;
+        }
+
+        // Função para adicionar uma entrada de LOG na área de logs da campanha
+        function addCampaignLogEntry(campaignId, logData) {
             const logArea = document.getElementById(`log-area-${campaignId}`);
             const logRow = document.querySelector(`tr.campaign-log-row[data-log-for="${campaignId}"]`);
-            if (logArea && logRow) {
-                logRow.style.display = 'table-row'; // Mostra a linha de log
-                if (logArea.innerHTML.includes('Aguardando logs...')) {
-                    logArea.innerHTML = ''; // Limpa mensagem inicial
-                }
-                const logEntry = document.createElement('p');
-                let statusColor = 'text-muted';
-                if (logData.status === 'SENT_SUCCESS') statusColor = 'text-success';
-                else if (logData.status === 'SENT_FAILED') statusColor = 'text-danger';
-                else if (logData.status === 'PROCESSING') statusColor = 'text-info';
+            if (!logArea || !logRow) return;
 
-                logEntry.className = statusColor;
-                logEntry.innerHTML = `
-                    <small>[${new Date().toLocaleTimeString()}] <strong>${logData.contact_name || logData.contact_phone}</strong>:
-                    ${logData.status.replace('_', ' ')}
-                    ${logData.message && logData.message.includes('Falha') ? `(${logData.api_response || ''})` : ''}
-                    </small>`;
-                logArea.appendChild(logEntry);
-                logArea.scrollTop = logArea.scrollHeight; // Auto-scroll
+            logRow.style.display = 'table-row'; // Garante que a linha de log esteja visível
+            if (logArea.innerHTML.includes('<small>Aguardando logs...</small>')) {
+                logArea.innerHTML = ''; // Limpa a mensagem inicial
             }
+
+            const logEntry = document.createElement('p');
+            const time = new Date().toLocaleTimeString();
+            const contactInfo = logData.contact_name || logData.contact_phone || 'Sistema';
+            const statusClass = `log-status-${logData.status || 'INFO'}`;
+            
+            logEntry.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <strong class="log-contact ${statusClass}">${contactInfo}:</strong>
+                <span class="${statusClass}">${(logData.status || 'INFO').replace(/_/g, ' ')}</span>
+                ${logData.message ? ` - ${logData.message}` : ''}
+                ${(logData.api_response && logData.status === 'SENT_FAILED') ? ` <small class='text-muted'>(${logData.api_response})</small>` : ''}
+            `;
+            logArea.appendChild(logEntry);
+            logArea.scrollTop = logArea.scrollHeight; // Auto-scroll para o final
         }
+
+
+        // --- Handlers de Eventos Socket.IO ---
 
         socket.on('campaign_status_update', function(data) {
             console.log('SocketIO Event: campaign_status_update', data);
-            let badgeClass = 'badge-info'; // Default para IN_PROGRESS
-            updateCampaignStatus(data.campaign_id, data.status, badgeClass);
-            if (data.status === 'IN_PROGRESS'){
-                 updateCampaignProgress(data.campaign_id, 0, 0, 0, 0, data.message || "Iniciando...");
-                 const logRow = document.querySelector(`tr.campaign-log-row[data-log-for="${data.campaign_id}"]`);
-                 if (logRow) logRow.style.display = 'table-row';
-                 const logArea = document.getElementById(`log-area-${data.campaign_id}`);
-                 if(logArea && logArea.innerHTML.includes('Aguardando logs...')) logArea.innerHTML = ''; // Limpa
+            if (!data.campaign_id) return;
+
+            updateCampaignStatusBadge(data.campaign_id, data.status, data.message);
+            updateActionButtons(data.campaign_id, data.status);
+            // Se o status for IN_PROGRESS, atualiza a área de progresso para "Iniciando..."
+            // Se for outro status, a área de progresso será atualizada pelo 'campaign_finished' ou 'campaign_progress'
+            if (data.status === 'IN_PROGRESS') {
+                updateCampaignProgressDisplay(data.campaign_id, 0, 0, 0, 0, "IN_PROGRESS"); // total 0 para mostrar "Iniciando"
+                addCampaignLogEntry(data.campaign_id, {status: "INFO", message: data.message || "Campanha iniciada..."});
             }
         });
 
         socket.on('campaign_progress', function(data) {
             console.log('SocketIO Event: campaign_progress', data);
-            updateCampaignProgress(data.campaign_id, data.processed, data.total, data.success, data.failed, data.status_text);
-            updateCampaignStatus(data.campaign_id, "IN_PROGRESS", "badge-info");
+            if (!data.campaign_id) return;
+
+            updateCampaignStatusBadge(data.campaign_id, "IN_PROGRESS"); // Garante que o badge é IN_PROGRESS
+            updateActionButtons(data.campaign_id, "IN_PROGRESS"); // Garante botões de IN_PROGRESS
+            updateCampaignProgressDisplay(data.campaign_id, data.processed, data.total, data.success, data.failed, "IN_PROGRESS");
         });
 
         socket.on('dispatch_update', function(data) {
             console.log('SocketIO Event: dispatch_update', data);
-            addCampaignLog(data.campaign_id, data);
+            if (!data.campaign_id) return;
+            addCampaignLogEntry(data.campaign_id, data);
         });
         
         socket.on('campaign_finished', function(data) {
             console.log('SocketIO Event: campaign_finished', data);
-            let badgeClass = 'badge-light';
-            if (data.status === 'COMPLETED') badgeClass = 'badge-success';
-            else if (data.status === 'COMPLETED_WITH_ERRORS') badgeClass = 'badge-warning';
-            else if (data.status === 'FAILED') badgeClass = 'badge-danger';
-            updateCampaignStatus(data.campaign_id, data.status, badgeClass);
-            updateCampaignProgress(data.campaign_id, data.total_dispatches, data.total_dispatches, data.success_count, data.failure_count, null);
+            if (!data.campaign_id) return;
+
+            updateCampaignStatusBadge(data.campaign_id, data.status);
+            updateActionButtons(data.campaign_id, data.status);
+            updateCampaignProgressDisplay(data.campaign_id, data.total_dispatches, data.total_dispatches, data.success_count, data.failure_count, data.status);
             
-            // Opcional: Adicionar um log final de conclusão
-            addCampaignLog(data.campaign_id, {
-                contact_name: "Sistema",
-                status: data.status,
-                message: `Campanha finalizada. Sucesso: ${data.success_count}, Falhas: ${data.failure_count}.`
+            addCampaignLogEntry(data.campaign_id, {
+                status: "INFO", // Ou data.status para ter a cor do status final
+                message: `Campanha finalizada. Status: ${data.status.replace(/_/g, ' ')}. Sucesso: ${data.success_count}, Falhas: ${data.failure_count}.`
             });
         });
 
         socket.on('campaign_error', function(data) {
             console.error('SocketIO Event: campaign_error', data);
-            updateCampaignStatus(data.campaign_id, "ERRO", "badge-danger");
-            const progressTextDiv = document.getElementById(`progress-text-${data.campaign_id}`);
-            if(progressTextDiv) progressTextDiv.innerHTML = `<small class="text-danger">Erro: ${data.message}</small>`;
-            addCampaignLog(data.campaign_id, { contact_name: "Sistema", status: "ERRO", message: data.message, api_response: ""});
+            if (!data.campaign_id) return;
+
+            updateCampaignStatusBadge(data.campaign_id, "ERRO");
+            updateActionButtons(data.campaign_id, "FAILED"); // Define botões para estado de FALHA
+            updateCampaignProgressDisplay(data.campaign_id, 0,0,0,0, "FAILED"); // Atualiza progresso para refletir falha
+            addCampaignLogEntry(data.campaign_id, { status: "ERRO", message: data.message });
         });
 
-        socket.on('campaign_log', function(data) { // Para logs gerais da campanha
+        socket.on('campaign_log', function(data) { // Para logs gerais da campanha vindos do backend
             console.info('SocketIO Event: campaign_log', data);
-             addCampaignLog(data.campaign_id, { contact_name: "Sistema", status: "INFO", message: data.message, api_response: ""});
+            if (!data.campaign_id) return;
+            addCampaignLogEntry(data.campaign_id, { status: "INFO", message: data.message });
         });
 
     });

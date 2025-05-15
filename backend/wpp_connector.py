@@ -10,6 +10,7 @@ sys.path.insert(0, 'C:\\Users\\Gestão MX\\Documents\\StoreBot') # Ajuste o cami
 from backend.config import (
     WPPCONNECT_SERVER_URL,
     WPPCONNECT_API_ENDPOINT_SEND_IMAGE,
+    WPPCONNECT_API_ENDPOINT_SEND_TEXT,
     # WPPCONNECT_SESSION_NAME # Removido se não usado diretamente aqui, já está em config
 )
 
@@ -17,6 +18,70 @@ from backend.auth_manager import generate_jwt_token, get_current_jwt_token # Aju
 #import backend.auth_manager # auth_manager em vez de from auth_manager import ... para clareza
 
 # ... (função send_whatsapp_message permanece a mesma) ...
+
+def send_whatsapp_message(phone_number, message):
+    """
+    Envia uma mensagem de texto simples para um número do WhatsApp.
+    """
+    if not phone_number or not message:
+        print("Erro (Texto): Número de telefone e mensagem são obrigatórios.")
+        return False, {"error": "Número de telefone e mensagem são obrigatórios."}
+
+    jwt_token = get_current_jwt_token()
+    if not jwt_token:
+        print("Erro (Texto): Falha ao obter token JWT. Tentando gerar um novo...")
+        if not generate_jwt_token():
+            print("Erro Crítico (Texto): Falha ao obter/gerar token JWT para autenticação.")
+            return False, {"error": "Falha ao obter/gerar token JWT para autenticação."}
+        jwt_token = get_current_jwt_token()
+        if not jwt_token:
+            print("Erro Crítico (Texto): Token JWT ainda indisponível após tentativa de geração.")
+            return False, {"error": "Token JWT ainda indisponível após tentativa de geração."}
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {jwt_token}"
+    }
+
+    payload = {
+        "phone": phone_number,
+        "message": message,
+        "isGroup": False, # Assumindo que não é para grupos por padrão
+        # "isNewsletter": False, # Opcional, pode remover se não usar
+        # "isLid": False, # Opcional, pode remover se não usar
+    }
+
+    # WPPCONNECT_API_ENDPOINT_SEND_TEXT deve estar definido em config.py
+    # Ex: WPPCONNECT_API_ENDPOINT_SEND_TEXT = f"/api/{WPPCONNECT_SESSION_NAME}/send-message"
+    full_api_url = f"{WPPCONNECT_SERVER_URL}{WPPCONNECT_API_ENDPOINT_SEND_TEXT}"
+
+    print(f"Debug (Texto): Enviando para {full_api_url} com payload: {json.dumps(payload, indent=2)}")
+
+    try:
+        response = requests.post(full_api_url, headers=headers, json=payload, timeout=30) # Timeout de 30s
+
+        if 200 <= response.status_code < 300:
+            print(f"Mensagem de texto enviada com sucesso para {phone_number}. Status: {response.status_code}")
+            try:
+                return True, response.json()
+            except ValueError: # requests.exceptions.JSONDecodeError
+                print(f"Sucesso no envio, mas resposta não era JSON: {response.text}")
+                return True, {"status_code": response.status_code, "raw_response": response.text}
+        else:
+            print(f"Falha ao enviar mensagem de texto para {phone_number}. Status: {response.status_code}, Resposta: {response.text}")
+            response_json_content = None
+            try:
+                response_json_content = response.json()
+            except ValueError: # requests.exceptions.JSONDecodeError
+                print("Debug (Texto): Resposta do servidor não era JSON válido.")
+            return False, {"status_code": response.status_code, "error": response.text, "response_json": response_json_content}
+
+    except requests.exceptions.RequestException as e:
+        print(f"Erro de conexão ao enviar mensagem de texto para {phone_number}: {e}")
+        return False, {"error": str(e)}
+    except Exception as e:
+        print(f"Erro inesperado em send_whatsapp_message: {e}")
+        return False, {"error": str(e)}
 
 def send_whatsapp_image_message(phone_number, image_path, caption=""):
     if not phone_number or not image_path:

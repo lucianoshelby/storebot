@@ -36,6 +36,11 @@
                 {% for filename in uploaded_files %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <span><i class="fas fa-file-csv mr-2"></i>{{ filename }}</span>
+                        <form action="{{ url_for('delete_list_file', filename=filename) }}" method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir a lista {{ filename }}? Esta ação não pode ser desfeita.');">
+                            <button type="submit" class="btn btn-danger btn-sm" title="Excluir Lista">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>                        
                         </li>
                 {% endfor %}
             </ul>
@@ -64,5 +69,5 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
 {% endblock %}
